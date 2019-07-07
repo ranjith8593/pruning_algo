@@ -1,11 +1,11 @@
-from core.model.lenet import LeNet
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torchvision.datasets.mnist import MNIST
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
+from torchvision.datasets.mnist import MNIST
 
+from core.model.lenet import LeNet
 
 data_train = MNIST('./data/mnist',
                    download=True,
@@ -38,14 +38,14 @@ def train(epoch):
         loss = criterion(output, labels)
 
         loss_list.append(loss.detach().cpu().item())
-        batch_list.append(i+1)
+        batch_list.append(i + 1)
 
         if i % 10 == 0:
             print('Train - Epoch %d, Batch: %d, Loss: %f' % (epoch, i, loss.detach().cpu().item()))
 
         loss.backward()
         optimizer.step()
-    torch.save(net,"lenet_train.pth")
+    torch.save(net, "lenet_train.pth")
 
 
 def test():

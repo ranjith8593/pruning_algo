@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
-from torch.autograd import Variable
+
 from core.model.lenet import LeNet
 
 """
@@ -23,9 +23,14 @@ from core.model.lenet import LeNet
     *** You can use GPU or CPU for fine-tuning
 """
 
-class AverageMeter(object):
+
+class AccuracyHolder(object):
     """Computes and stores the average and current value"""
     avg = None
+    val = 0
+    sum = 0
+    count = 0
+
     def __init__(self, name):
         self.name = name
         self.reset()
@@ -43,7 +48,7 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def train(epoch,data_train_loader, net, criterion, optimizer):
+def train(epoch, data_train_loader, net, criterion, optimizer):
     global cur_batch_win
     net.train()
     loss_list, batch_list = [], []
@@ -53,27 +58,12 @@ def train(epoch,data_train_loader, net, criterion, optimizer):
         output = net(images)
         loss = criterion(output, labels)
         loss_list.append(loss.detach().cpu().item())
-        batch_list.append(i+1)
+        batch_list.append(i + 1)
         if i % 10 == 0:
             print('Train - Epoch %d, Batch: %d, Loss: %f' % (epoch, i, loss.detach().cpu().item()))
         loss.backward()
         optimizer.step()
-    torch.save(net,"lenet_train_mod.pth")
-
-def test(model, data_test_loader):
-    losses = AverageMeter('Loss')
-    top1 = AverageMeter('Acc@1')
-    # switch to evaluate mode
-    model.eval()
-    acc = None
-    criterion = nn.CrossEntropyLoss()
-    with torch.no_grad():
-        for i, (images, target) in enumerate(data_test_loader):
-            output = model(images)
-            loss = criterion(output, target)
-            acc1 = accuracy(output, target)
-            acc = top1.update(acc1[0], images.size(0))
-    return top1.avg
+    torch.save(net, "lenet_train_mod.pth")
 
 
 def get_mnist_dataloaders(root, batch_size):
@@ -96,14 +86,14 @@ def get_mnist_dataloaders(root, batch_size):
     :return: tuple
     """
     transform = transforms.Compose([
-        transforms.Resize((32,32)),
+        transforms.Resize((32, 32)),
         transforms.ToTensor(),
-        transforms.Normalize((0.1307,),(0.3081,))
-        ])
-    train_dt = datasets.MNIST(root=root, train=True, download=True, transform =transform)
+        transforms.Normalize((0.1307,), (0.3081,))
+    ])
+    train_dt = datasets.MNIST(root=root, train=True, download=True, transform=transform)
     train_loader = torch.utils.data.DataLoader(train_dt, batch_size=batch_size, shuffle=True)
 
-    test_dt = datasets.MNIST(root=root, train=False, download=True, transform =transform)
+    test_dt = datasets.MNIST(root=root, train=False, download=True, transform=transform)
     test_loader = torch.utils.data.DataLoader(train_dt, batch_size=batch_size, shuffle=True)
     return (train_loader, test_loader)
 
@@ -132,21 +122,18 @@ def get_accuracy_top1(model, data_loader):
     :param data_loader: torch.utils.data.DataLoader
     :return: float
     """
-    losses = AverageMeter('Loss')
-    top1 = AverageMeter('Acc@1')
+    top1 = AccuracyHolder('Acc')
     # switch to evaluate mode
     model.eval()
     acc = None
     criterion = nn.CrossEntropyLoss()
     with torch.no_grad():
-        for i, (images, target) in enumerate(data_test_loader):
+        for i, (images, target) in enumerate(data_loader):
             output = model(images)
             loss = criterion(output, target)
             acc1 = accuracy(output, target)
             acc = top1.update(acc1[0], images.size(0))
-            print acc1[0]
-    return top1.avg
-
+    return top1.avg.cpu().numpy()[0]
 
 
 def prune_model(model, threshold):
@@ -179,10 +166,11 @@ def prune_model_finetune(model, train_loader, test_loader, threshold):
     # Retraining
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(net.parameters(), lr=2e-3)
-    for e in range(1, 16):
+    for e in range(1, 8):
         train(e, train_loader, net, criterion, optimizer)
+    print("top1 accuracy")
     print(get_accuracy_top1(net, test_loader))
-    
+
 
 if __name__ == '__main__':
     model = torch.load('lenet_train.pth')
@@ -191,6 +179,6 @@ if __name__ == '__main__':
     for p in model.parameters():
         if len(p.data.size()) != 1:
             weights += list(p.cpu().data.abs().numpy().flatten())
-    threshold = np.percentile(np.array(weights), 10)
+    threshold = np.percentile(np.array(weights), 50)
     print(threshold)
     prune_model_finetune(model, train_loader, test_loader, threshold)
