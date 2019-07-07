@@ -6,6 +6,8 @@ import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 
 from core.model.lenet import LeNet
+from util.accuracy_holder import AccuracyHolder
+from util.model_train import train, top1_accuracy
 
 """
     Deeplite coding challenge.
@@ -23,47 +25,6 @@ from core.model.lenet import LeNet
     *** You can use GPU or CPU for fine-tuning
 """
 
-
-class AccuracyHolder(object):
-    """Computes and stores the average and current value"""
-    avg = None
-    val = 0
-    sum = 0
-    count = 0
-
-    def __init__(self, name):
-        self.name = name
-        self.reset()
-
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
-
-
-def train(epoch, data_train_loader, net, criterion, optimizer):
-    global cur_batch_win
-    net.train()
-    loss_list, batch_list = [], []
-    cur_batch_win = None
-    for i, (images, labels) in enumerate(data_train_loader):
-        optimizer.zero_grad()
-        output = net(images)
-        loss = criterion(output, labels)
-        loss_list.append(loss.detach().cpu().item())
-        batch_list.append(i + 1)
-        if i % 10 == 0:
-            print('Train - Epoch %d, Batch: %d, Loss: %f' % (epoch, i, loss.detach().cpu().item()))
-        loss.backward()
-        optimizer.step()
-    torch.save(net, "lenet_train_mod.pth")
 
 
 def get_mnist_dataloaders(root, batch_size):
@@ -91,28 +52,12 @@ def get_mnist_dataloaders(root, batch_size):
         transforms.Normalize((0.1307,), (0.3081,))
     ])
     train_dt = datasets.MNIST(root=root, train=True, download=True, transform=transform)
-    train_loader = torch.utils.data.DataLoader(train_dt, batch_size=batch_size, shuffle=True)
+    train_dt_loader = torch.utils.data.DataLoader(train_dt, batch_size=batch_size, shuffle=True)
 
     test_dt = datasets.MNIST(root=root, train=False, download=True, transform=transform)
-    test_loader = torch.utils.data.DataLoader(train_dt, batch_size=batch_size, shuffle=True)
-    return (train_loader, test_loader)
+    test_dt_loader = torch.utils.data.DataLoader(test_dt, batch_size=batch_size, shuffle=True)
+    return (train_dt_loader, test_dt_loader)
 
-
-def accuracy(output, target, topk=(1,)):
-    """Computes the accuracy over the k top predictions for the specified values of k"""
-    with torch.no_grad():
-        maxk = max(topk)
-        batch_size = target.size(0)
-
-        _, pred = output.topk(maxk, 1, True, True)
-        pred = pred.t()
-        correct = pred.eq(target.view(1, -1).expand_as(pred))
-
-        res = []
-        for k in topk:
-            correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
-            res.append(correct_k.mul_(100.0 / batch_size))
-        return res
 
 
 def get_accuracy_top1(model, data_loader):
@@ -125,14 +70,11 @@ def get_accuracy_top1(model, data_loader):
     top1 = AccuracyHolder('Acc')
     # switch to evaluate mode
     model.eval()
-    acc = None
-    criterion = nn.CrossEntropyLoss()
     with torch.no_grad():
         for i, (images, target) in enumerate(data_loader):
             output = model(images)
-            loss = criterion(output, target)
-            acc1 = accuracy(output, target)
-            acc = top1.update(acc1[0], images.size(0))
+            acc1 = top1_accuracy(output, target)
+            top1.update(acc1[0], images.size(0))
     return top1.avg.cpu().numpy()[0]
 
 
@@ -173,7 +115,7 @@ def prune_model_finetune(model, train_loader, test_loader, threshold):
 
 
 if __name__ == '__main__':
-    model = torch.load('lenet_train.pth')
+    model = torch.load('lenet.pth')
     train_loader, test_loader = get_mnist_dataloaders("./data/mnist", 256)
     weights = []
     for p in model.parameters():

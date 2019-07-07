@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 import torch.optim as optim
 import torchvision.transforms as transforms
@@ -6,6 +5,7 @@ from torch.utils.data import DataLoader
 from torchvision.datasets.mnist import MNIST
 
 from core.model.lenet import LeNet
+from util.model_train import train, test
 
 data_train = MNIST('./data/mnist',
                    download=True,
@@ -26,45 +26,9 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(net.parameters(), lr=2e-3)
 
 
-def train(epoch):
-    global cur_batch_win
-    net.train()
-    loss_list, batch_list = [], []
-    for i, (images, labels) in enumerate(data_train_loader):
-        optimizer.zero_grad()
-
-        output = net(images)
-
-        loss = criterion(output, labels)
-
-        loss_list.append(loss.detach().cpu().item())
-        batch_list.append(i + 1)
-
-        if i % 10 == 0:
-            print('Train - Epoch %d, Batch: %d, Loss: %f' % (epoch, i, loss.detach().cpu().item()))
-
-        loss.backward()
-        optimizer.step()
-    torch.save(net, "lenet_train.pth")
-
-
-def test():
-    net.eval()
-    total_correct = 0
-    avg_loss = 0.0
-    for i, (images, labels) in enumerate(data_test_loader):
-        output = net(images)
-        avg_loss += criterion(output, labels).sum()
-        pred = output.detach().max(1)[1]
-        total_correct += pred.eq(labels.view_as(pred)).sum()
-
-    avg_loss /= len(data_test)
-    print('Test Avg. Loss: %f, Accuracy: %f' % (avg_loss.detach().cpu().item(), float(total_correct) / len(data_test)))
-
-
 def train_and_test(epoch):
-    train(epoch)
-    test()
+    train(epoch, data_train_loader, net, criterion, optimizer, "lenet.pth")
+    test(net, data_test_loader, criterion, len(data_test))
 
 
 if __name__ == "__main__":
