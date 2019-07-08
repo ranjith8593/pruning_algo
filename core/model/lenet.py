@@ -1,3 +1,5 @@
+"""LeNet model
+"""
 import torch.nn as nn
 
 from pruning import ModifiedLinear, ModifiedConv2d
