@@ -9,23 +9,6 @@ from core.model.lenet import LeNet
 from util.accuracy_holder import AccuracyHolder
 from util.model_train import train, top1_accuracy
 
-"""
-    Deeplite coding challenge.
-	The main goal of this coding challenge is to implement a very simple pruning algorithm for lenet. There are two steps 
-	to implement this coding challenge. 
-	Step 1:
-		Implement the pruning algorithm to remove weights which are smaller than the given threshold (prune_model)
-	Step 2:
-		As you may know after pruning, the accuracy drops a lot. To recover the accuracy, we need to do the fine-tuning.
-		It means, we need to retrain the network for few epochs. Use prune_model method which you have implemented in 
-		step 1 and then fine-tune the network to regain the accuracy drop (prune_model_finetune)
-    
-    *** The pretrained lenet has been provided (lenet.pth)
-    *** You need to install torch 0.3.1 on ubuntu
-    *** You can use GPU or CPU for fine-tuning
-"""
-
-
 
 def get_mnist_dataloaders(root, batch_size):
     """
@@ -57,7 +40,6 @@ def get_mnist_dataloaders(root, batch_size):
     test_dt = datasets.MNIST(root=root, train=False, download=True, transform=transform)
     test_dt_loader = torch.utils.data.DataLoader(test_dt, batch_size=batch_size, shuffle=True)
     return (train_dt_loader, test_dt_loader)
-
 
 
 def get_accuracy_top1(model, data_loader):
